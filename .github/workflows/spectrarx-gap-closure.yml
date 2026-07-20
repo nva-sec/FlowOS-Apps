@@ -1,0 +1,67 @@
+name: SpectraRx comprehensive gap closure
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/spectrarx-external-validation
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install numpy pandas scipy scikit-learn requests
+      - name: Execute base data build
+        run: python spectrarx_external_validation.py | tee execution.log
+      - name: Execute comprehensive gap closure
+        run: python spectrarx_gap_closure.py | tee -a execution.log
+      - name: Verify evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          o=Path('outputs/gap_closure')
+          s=json.loads((o/'STATUS.json').read_text())
+          assert s['status']=='completed'
+          a=pd.read_csv(o/'ablation_summary.csv')
+          assert set(a.method)=={'bias_only','cv_rank','analytic_quadratic','empirical_hard','empirical_soft','no_bias_quadratic','SpectraRx_full'}
+          assert set(a.dataset)=={'GDSC1','GDSC2','PRISM'}
+          assert (o/'ablation_tests.csv').exists()
+          assert (o/'missingness_phase.csv').exists()
+          assert (o/'hybrid_transfer_summary.csv').exists()
+          assert (o/'BAMM_clinical_validation.json').exists()
+          print(json.dumps(s,indent=2))
+          PY
+      - name: Create manifest
+        run: |
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          def h(p):
+            x=hashlib.sha256();x.update(p.read_bytes());return x.hexdigest()
+          o=Path('outputs/gap_closure')
+          (o/'MANIFEST.json').write_text(json.dumps({'commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'files':{p.name:h(p) for p in o.iterdir() if p.is_file()}},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spectrarx-gap-closure
+          path: |
+            outputs/gap_closure/
+            execution.log
+          retention-days: 30
+          if-no-files-found: error
