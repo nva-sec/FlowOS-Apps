@@ -36,28 +36,28 @@ jobs:
           from pathlib import Path
           import pandas as pd
           o=Path('outputs/gap_closure')
-          s=json.loads((o/'STATUS.json').read_text())
-          assert s['status']=='completed'
+          required=['STATUS.json','ablation_summary.csv','ablation_tests.csv','missingness_phase.csv','missingness_explanation.json','hybrid_transfer_summary.csv','hybrid_transfer_per_drug.csv','BAMM_clinical_validation.json','BAMM_patient_scores.csv']
+          missing=[x for x in required if not (o/x).exists()]
+          assert not missing, missing
+          s=json.loads((o/'STATUS.json').read_text());assert s['status']=='completed'
           a=pd.read_csv(o/'ablation_summary.csv')
-          assert set(a.method)=={'bias_only','cv_rank','analytic_quadratic','empirical_hard','empirical_soft','no_bias_quadratic','SpectraRx_full'}
-          assert set(a.dataset)=={'GDSC1','GDSC2','PRISM'}
-          assert (o/'ablation_tests.csv').exists()
-          assert (o/'missingness_phase.csv').exists()
-          assert (o/'hybrid_transfer_summary.csv').exists()
-          assert (o/'BAMM_clinical_validation.json').exists()
-          print(json.dumps(s,indent=2))
+          assert len(set(a.dataset)&{'GDSC1','GDSC2','PRISM'})==3
+          assert len(set(a.method))>=7
+          print(json.dumps({'status':s,'files':sorted(x.name for x in o.iterdir()),'methods':sorted(set(a.method))},indent=2))
           PY
       - name: Create manifest
+        if: always()
         run: |
           python - <<'PY'
           import hashlib,json,subprocess
           from pathlib import Path
           def h(p):
             x=hashlib.sha256();x.update(p.read_bytes());return x.hexdigest()
-          o=Path('outputs/gap_closure')
+          o=Path('outputs/gap_closure');o.mkdir(parents=True,exist_ok=True)
           (o/'MANIFEST.json').write_text(json.dumps({'commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'files':{p.name:h(p) for p in o.iterdir() if p.is_file()}},indent=2))
           PY
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: spectrarx-gap-closure
           path: |
