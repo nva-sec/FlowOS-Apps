@@ -5,4 +5,4 @@
 - Official PRISM primary response and annotation files: Figshare IDs 20237709, 20237715, and 20237718
 - Official Sanger SIDM↔BROAD/ACH model bridge: `model_list_latest.csv.gz`
 
-Raw response matrices are downloaded only during the isolated hosted workflow and are excluded from its derived-results artifact. The harmonized validation stage changes identifiers only; the frozen SpectraRx predictor and benchmark settings remain unchanged.
+Raw response matrices are downloaded only during the isolated hosted workflow and are excluded from its derived-results artifact. The harmonized validation stage changes identifiers only; the frozen SpectraRx predictor and benchmark settings remain unchanged. Factor interpretation uses the same matched spectral loadings and prespecified permutation/FDR inference.
